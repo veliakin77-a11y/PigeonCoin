@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PigeonCoin (PGC)</title>
+
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+
+<style>
+body {
+    margin: 0;
+    background: #05070d;
+    color: white;
+    font-family: Arial;
+    text-align: center;
+}
+
+.container {
+    padding: 40px;
+}
+
+.card {
+    background: #0d111c;
+    padding: 25px;
+    border-radius: 15px;
+    display: inline-block;
+    width: 340px;
+    box-shadow: 0 0 20px rgba(255,215,0,0.2);
+}
+
+input {
+    width: 90%;
+    padding: 12px;
+    margin: 10px;
+    border-radius: 8px;
+    border: none;
+}
+
+.btn {
+    padding: 12px 20px;
+    margin: 10px;
+    background: gold;
+    color: black;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.price {
+    color: #00ffcc;
+    font-size: 20px;
+}
+
+iframe {
+    margin-top: 30px;
+    border-radius: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🐦 PigeonCoin</h1>
+<p>ERC-20 Meme Coin on Ethereum</p>
+
+<div class="card">
+
+<div id="wallet">Wallet: Not Connected</div>
+
+<button class="btn" onclick="connectWallet()">🦊 Connect Wallet</button>
+
+<hr>
+
+<input id="ethAmount" placeholder="ETH Amount (0.01)" />
+<input id="slippage" placeholder="Slippage % (2)" />
+
+<button class="btn" onclick="buy()">🚀 Buy PGC</button>
+
+<br>
+
+<a class="btn" href="https://etherscan.io/token/0xa84415b70b811383fd59d900f3b76e2a4dd3e87e" target="_blank">
+🔍 Etherscan
+</a>
+
+<a class="btn" href="https://app.uniswap.org/#/swap?outputCurrency=0xa84415b70b811383fd59d900f3b76e2a4dd3e87e" target="_blank">
+Buy on Uniswap
+</a>
+
+<div class="price" id="price">Loading price...</div>
+
+</div>
+
+<!-- DEXSCREENER CHART -->
+<iframe 
+src="https://dexscreener.com/ethereum/0xa84415b70b811383fd59d900f3b76e2a4dd3e87e?embed=1&theme=dark"
+width="90%" height="500">
+</iframe>
+
+</div>
+
+<script>
+let provider, signer, user;
+
+const token = "0xa84415b70b811383fd59d900f3b76e2a4dd3e87e";
+const routerAddr = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
+
+// WALLET CONNECT
+async function connectWallet() {
+    if (!window.ethereum) {
+        alert("MetaMask gerekli!");
+        return;
+    }
+
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    signer = provider.getSigner();
+    user = await signer.getAddress();
+
+    document.getElementById("wallet").innerText = "Wallet: " + user;
+}
+
+// BUY TOKEN
+async function buy() {
+
+    let eth = document.getElementById("ethAmount").value || "0.01";
+
+    const abi = [
+        "function exactInputSingle(tuple(address,address,uint24,address,uint256,uint256,uint256,uint160)) payable returns (uint256)"
+    ];
+
+    const router = new ethers.Contract(routerAddr, abi, signer);
+
+    const amountIn = ethers.utils.parseEther(eth);
+
+    const params = {
+        tokenIn: "0xC02aaA39b223FE8D0A0E5C4F27eAD9083C756Cc2",
+        tokenOut: token,
+        fee: 3000,
+        recipient: user,
+        deadline: Math.floor(Date.now()/1000) + 600,
+        amountIn: amountIn,
+        amountOutMinimum: 0,
+        sqrtPriceLimitX96: 0
+    };
+
+    try {
+        const tx = await router.exactInputSingle(params, {
+            value: amountIn
+        });
+
+        await tx.wait();
+        alert("Satın alma başarılı 🚀");
+    } catch(e) {
+        alert("İşlem başarısız!");
+    }
+}
+
+// DEXSCREENER PRICE
+async function loadPrice() {
+    try {
+        const res = await fetch("https://api.dexscreener.com/latest/dex/tokens/" + token);
+        const data = await res.json();
+        const price = data.pairs[0].priceUsd;
+
+        document.getElementById("price").innerText = "Price: $" + Number(price).toFixed(8);
+    } catch {
+        document.getElementById("price").innerText = "Price unavailable";
+    }
+}
+
+setInterval(loadPrice, 5000);
+loadPrice();
+
+</script>
+
+</body>
+</html>
